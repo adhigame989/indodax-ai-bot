@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Indodax AI Bot</title>
+  <style>
+    body{
+      background:#111;
+      color:#0f0;
+      font-family:monospace;
+      padding:20px;
+    }
+
+    button{
+      padding:10px;
+      margin:5px;
+      font-size:18px;
+    }
+
+    #log{
+      white-space:pre-wrap;
+      margin-top:20px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>INDODAX AI MULTI COIN BOT</h1>
+
+<input id="apikey" placeholder="API KEY" style="width:100%;padding:10px"><br><br>
+<input id="secret" placeholder="SECRET KEY" style="width:100%;padding:10px"><br><br>
+
+<button onclick="startBot()">START BOT</button>
+
+<div id="log"></div>
+
+<script>
+
+const log = (msg)=>{
+  document.getElementById("log").innerHTML += msg + "\\n";
+}
+
+async function getTickers(){
+  const r = await fetch("https://indodax.com/api/tickers");
+  return await r.json();
+}
+
+function analyzeCoins(tickers){
+
+  let coins = [];
+
+  for(let pair in tickers.tickers){
+
+    if(!pair.endsWith("_idr")) continue;
+
+    let c = tickers.tickers[pair];
+
+    let buy = parseFloat(c.buy);
+    let sell = parseFloat(c.sell);
+    let vol = parseFloat(c.vol_idr);
+
+    let spread = sell - buy;
+
+    let score = vol / (spread+1);
+
+    coins.push({
+      pair,
+      buy,
+      sell,
+      vol,
+      spread,
+      score
+    });
+  }
+
+  coins.sort((a,b)=>b.score-a.score);
+
+  return coins.slice(0,10);
+}
+
+async function startBot(){
+
+  log("SCAN MARKET...");
+
+  const tickers = await getTickers();
+
+  const bestCoins = analyzeCoins(tickers);
+
+  log("TOP COINS:");
+
+  bestCoins.forEach(c=>{
+    log(
+      c.pair +
+      " | VOL:" + Math.floor(c.vol) +
+      " | SCORE:" + Math.floor(c.score)
+    );
+  });
+
+  autoTrade(bestCoins);
+}
+
+function autoTrade(coins){
+
+  log("");
+  log("AI SELECT COIN...");
+
+  let best = coins[0];
+
+  log("BEST COIN: " + best.pair);
+
+  log("SIMULASI BUY...");
+  log("BUY PRICE: " + best.buy);
+
+  let tp = best.buy * 1.03;
+  let sl = best.buy * 0.97;
+
+  log("TAKE PROFIT: " + tp.toFixed(0));
+  log("STOP LOSS: " + sl.toFixed(0));
+
+  monitor(best,tp,sl);
+}
+
+function monitor(coin,tp,sl){
+
+  log("");
+  log("MONITORING...");
+
+  setInterval(async()=>{
+
+    const tickers = await getTickers();
+
+    let c = tickers.tickers[coin.pair];
+
+    let price = parseFloat(c.last);
+
+    log(
+      coin.pair +
+      " PRICE: " +
+      price
+    );
+
+    if(price >= tp){
+      log("TAKE PROFIT HIT!");
+    }
+
+    if(price <= sl){
+      log("STOP LOSS HIT!");
+    }
+
+  },10000);
+
+}
+
+</script>
+
+</body>
+</html>
